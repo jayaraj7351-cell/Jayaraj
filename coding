@@ -4,10 +4,7 @@ import math
 import random
 import time
 
-
-# ============================================================
 # 1. WEIGHTED UNDIRECTED GRAPH (Grid-based)
-# ============================================================
 
 class WeightedGridGraph:
     """
@@ -58,9 +55,7 @@ class WeightedGridGraph:
         return result
 
 
-# ============================================================
 # 2. ADMISSIBLE HEURISTICS
-# ============================================================
 
 def h_zero(a, b):
     """Zero heuristic: Always admissible. Equivalent to Dijkstra's algorithm."""
@@ -77,9 +72,8 @@ def h_euclidean(a, b):
     return math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
 
 
-# ============================================================
+
 # 3. A* SEARCH IMPLEMENTATION (FULLY FROM SCRATCH)
-# ============================================================
 
 def reconstruct_path(parent, node):
     """Backtracks through parent map to create the final path."""
@@ -136,9 +130,7 @@ def astar(graph, start, goal, heuristic):
     return None, float('inf'), nodes_expanded
 
 
-# ============================================================
 # 4. EXPERIMENT ENGINE
-# ============================================================
 
 def random_free_cell(graph):
     """Selects a random valid (x,y) location."""
@@ -210,9 +202,8 @@ def run_experiment():
     return results
 
 
-# ============================================================
+
 # 5. MAIN
-# ============================================================
 
 if __name__ == "__main__":
     run_experiment()
