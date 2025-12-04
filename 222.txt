@@ -1,0 +1,220 @@
+
+import heapq
+import math
+import random
+import time
+
+
+# ============================================================
+# 1. WEIGHTED UNDIRECTED GRAPH (Grid-based)
+# ============================================================
+
+class WeightedGridGraph:
+    """
+    Generates a weighted, undirected grid graph.
+    Obstacles are placed randomly based on obstacle_rate.
+    Each traversable cell has a random cost weight.
+    """
+
+    def __init__(self, width, height, min_cost=1, max_cost=10, obstacle_rate=0.15):
+        self.width = width
+        self.height = height
+
+        # 0 = free, 1 = obstacle
+        self.blocked = [
+            [1 if random.random() < obstacle_rate else 0
+             for _ in range(width)]
+            for _ in range(height)
+        ]
+
+        # movement cost for each cell
+        self.weight = [
+            [random.randint(min_cost, max_cost) for _ in range(width)]
+            for _ in range(height)
+        ]
+
+    # ---------------------------
+    # Grid validation helpers
+    # ---------------------------
+    def is_valid(self, node):
+        x, y = node
+        if 0 <= x < self.width and 0 <= y < self.height:
+            return self.blocked[y][x] == 0
+        return False
+
+    # ---------------------------
+    # Neighbor generation
+    # ---------------------------
+    def neighbors(self, node):
+        x, y = node
+        dirs = [(1,0),(-1,0),(0,1),(0,-1)]   # 4-directional movement
+
+        result = []
+        for dx, dy in dirs:
+            nx, ny = x + dx, y + dy
+            if self.is_valid((nx, ny)):
+                cost = self.weight[ny][nx]
+                result.append(((nx, ny), cost))
+        return result
+
+
+# ============================================================
+# 2. ADMISSIBLE HEURISTICS
+# ============================================================
+
+def h_zero(a, b):
+    """Zero heuristic: Always admissible. Equivalent to Dijkstra's algorithm."""
+    return 0
+
+
+def h_manhattan(a, b):
+    """Manhattan distance heuristic (admissible for 4-connected grids)."""
+    return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+
+def h_euclidean(a, b):
+    """Euclidean distance heuristic (always admissible)."""
+    return math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
+
+
+# ============================================================
+# 3. A* SEARCH IMPLEMENTATION (FULLY FROM SCRATCH)
+# ============================================================
+
+def reconstruct_path(parent, node):
+    """Backtracks through parent map to create the final path."""
+    path = []
+    while node is not None:
+        path.append(node)
+        node = parent[node]
+    return list(reversed(path))
+
+
+def astar(graph, start, goal, heuristic):
+    """
+    A* implementation using:
+    - Priority queue (heapq)
+    - g(n), f(n)
+    - Parent map
+    - Expanded node counter
+    """
+    if not graph.is_valid(start) or not graph.is_valid(goal):
+        return None, float('inf'), 0
+
+    open_set = []
+    heapq.heappush(open_set, (0, start))    # store (f-score, node)
+
+    g = {start: 0}
+    parent = {start: None}
+    closed = set()
+
+    nodes_expanded = 0
+
+    while open_set:
+        _, current = heapq.heappop(open_set)
+        nodes_expanded += 1
+
+        if current == goal:
+            path = reconstruct_path(parent, current)
+            return path, g[current], nodes_expanded
+
+        closed.add(current)
+
+        for neighbor, weight in graph.neighbors(current):
+            if neighbor in closed:
+                continue
+
+            tentative_g = g[current] + weight
+
+            # If this is a better path, update it
+            if neighbor not in g or tentative_g < g[neighbor]:
+                parent[neighbor] = current
+                g[neighbor] = tentative_g
+                f = tentative_g + heuristic(neighbor, goal)
+                heapq.heappush(open_set, (f, neighbor))
+
+    return None, float('inf'), nodes_expanded
+
+
+# ============================================================
+# 4. EXPERIMENT ENGINE
+# ============================================================
+
+def random_free_cell(graph):
+    """Selects a random valid (x,y) location."""
+    while True:
+        x = random.randint(0, graph.width - 1)
+        y = random.randint(0, graph.height - 1)
+        if graph.is_valid((x, y)):
+            return (x, y)
+
+
+def run_experiment():
+    print("\n================ A* HEURISTIC ANALYSIS ================\n")
+
+    # Create test grid
+    width, height = 40, 40
+    graph = WeightedGridGraph(width, height)
+
+    start = random_free_cell(graph)
+    goal = random_free_cell(graph)
+
+    print(f"Start Node: {start}")
+    print(f"Goal Node:  {goal}")
+    print("--------------------------------------------------------")
+
+    heuristics = {
+        "Zero (Dijkstra)": h_zero,
+        "Manhattan": h_manhattan,
+        "Euclidean": h_euclidean
+    }
+
+    results = {}
+
+    # -------------------------------
+    # Run A* for each heuristic
+    # -------------------------------
+    for name, h in heuristics.items():
+        print(f"\nRunning A* using heuristic: {name}")
+
+        t0 = time.perf_counter()
+        path, cost, expanded = astar(graph, start, goal, h)
+        t1 = time.perf_counter()
+
+        runtime_ms = (t1 - t0) * 1000
+
+        results[name] = {
+            "path_cost": cost,
+            "path_length": len(path) if path else None,
+            "nodes_expanded": expanded,
+            "runtime_ms": runtime_ms
+        }
+
+        print(f"  Path Cost:       {cost}")
+        print(f"  Path Length:     {results[name]['path_length']}")
+        print(f"  Nodes Expanded:  {expanded}")
+        print(f"  Runtime:         {runtime_ms:.3f} ms")
+
+    # ------------------------------------------
+    # Comparative table
+    # ------------------------------------------
+    print("\n================== SUMMARY TABLE ==================\n")
+    for name, r in results.items():
+        print(f"Heuristic: {name}")
+        print(f"  Path Cost:      {r['path_cost']}")
+        print(f"  Path Length:    {r['path_length']}")
+        print(f"  Nodes Expanded: {r['nodes_expanded']}")
+        print(f"  Runtime (ms):   {r['runtime_ms']:.3f}")
+        print("")
+
+    return results
+
+
+# ============================================================
+# 5. MAIN
+# ============================================================
+
+if __name__ == "__main__":
+    run_experiment()
+
+
